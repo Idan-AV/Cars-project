@@ -67,6 +67,7 @@ class UserProfileSerializer(ModelSerializer):
     def to_representation(self, instance):
         user_repr = super().to_representation(instance)
         user_repr['address'] = instance.profile.address
+        user_repr['img_url'] = instance.profile.img_url
         user_repr['phone_number'] = instance.profile.phone_number
         return user_repr
 
@@ -84,11 +85,14 @@ class UserSerializer(ModelSerializer):
     phone_number = serializers.CharField(
         required=True, max_length=256, write_only=True
     )
+    img_url = serializers.URLField(
+        required=False, max_length=256, write_only=True
+    )
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name', 'address', 'phone_number',
-                  'profile']
+        fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name', 'address', 'phone_number', 'img_url'
+            , 'profile']
         extra_kwargs = {
             'email': {'required': True},
             'username': {'read_only': True},
@@ -107,6 +111,32 @@ class UserSerializer(ModelSerializer):
             Owner.objects.create(user=user, address=validated_data['address'],
                                  phone_number=validated_data['phone_number'])
         return user
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Owner
+        fields = ['phone_number']
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    profile = ProfileUpdateSerializer(many=False)
+
+    class Meta:
+        model = User
+        fields = ['email', 'profile']
+
+    def update(self, instance, validated_data):
+        print(validated_data)
+        profile = None
+        if 'profile' in validated_data:
+            profile = validated_data.pop('profile')
+            instance.profile.phone_number = profile['phone_number']
+            instance.profile.save()
+            print(profile)
+        instance.email = validated_data['email']
+        instance.save()
+        return instance
 
 
 class DetailedUserSerializer(ModelSerializer):
@@ -143,7 +173,7 @@ class GetCar(serializers.ModelSerializer):
         model = Car
         fields = ['year_of_manufacture', 'model_name', 'number_of_past_owners', 'description', 'color',
                   'engine_capacity', 'number_of_seats', 'car_condition'
-            , 'mileage', 'transmission', 'price', 'user_name', 'company_name', 'pic_url', 'address1', 'id']
+            , 'mileage', 'transmission', 'price', 'user_name', 'company_name', 'pic_url', 'address1', 'id', 'user']
         # just the company name and the username
 
 
@@ -166,8 +196,7 @@ class AllCars(serializers.ModelSerializer):
     class Meta:
         model = Car
         fields = ['id', 'price', 'model_name', 'mileage', 'car_condition', 'year_of_manufacture', 'pic_url',
-                  'company_name', 'description']
-
+                  'company_name', 'description', 'user']
 
     # ask valeria
     # def validate(self, data):

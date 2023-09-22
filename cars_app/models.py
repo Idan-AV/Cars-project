@@ -28,15 +28,15 @@ class Car(models.Model):
     )
     model_name = models.CharField(max_length=256, null=False)
     number_of_past_owners = models.IntegerField(null=False)
-    description = models.TextField(null=True)
-    color = models.CharField(max_length=256, null=True)
+    description = models.TextField(null=False)
+    color = models.CharField(max_length=256, null=False)
     engine_capacity = models.FloatField(null=False)
-    number_of_seats = models.IntegerField(null=True)
+    number_of_seats = models.IntegerField(null=False)
     car_condition = models.CharField(max_length=256, null=False, choices=[('new', 'new'), ('used', 'used')])
     mileage = models.FloatField(null=False)
-    transmission = models.CharField(max_length=256, null=True)
+    transmission = models.CharField(max_length=256, null=False)
     price = models.FloatField(null=False)
-    pic_url = models.URLField(max_length=512, db_column='pic_url', null=True)
+    pic_url = models.URLField(max_length=512, db_column='pic_url', null=True, blank=True)
 
     class Meta:
         db_table = 'cars'
@@ -62,6 +62,7 @@ class Owner(models.Model):
     )
     address = models.CharField(max_length=500, null=False)
     phone_number = models.CharField(max_length=256, null=False)
+    img_url = models.URLField(max_length=512, null=True)
 
     class Meta:
         db_table = 'owners'

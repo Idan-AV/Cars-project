@@ -1,8 +1,17 @@
+import os
+import uuid
+
 from django.http import JsonResponse
 from django.shortcuts import render
 import json
 
 from django.shortcuts import render
+from google.oauth2 import service_account
+from google.cloud import storage
+
+from google.oauth2 import id_token
+from google.auth.transport import requests
+
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.generics import get_object_or_404
@@ -61,14 +70,45 @@ def get_all_users(request):
         return Response(serializer.data)
 
 
-@api_view(['GET'])
-def get_a_user_by_name(request, user_name):
+@api_view(['GET', 'PATCH', 'PUT'])
+def get_a_user_by_id(request, user_id):
+    # if not request.user.is_authenticated:
+    #     return Response(status=status.HTTP_401_UNAUTHORIZED)
+    #
+    # # Get the user specified in the URL or return a 404 response if not found
+    # user = get_object_or_404(User, id=user_id)
+    #
+    # # Check if the user is trying to update their own profile
+    # if request.user.id != user.id:
+    #     return Response(status=status.HTTP_403_FORBIDDEN)
+    #
+    # if request.method == 'GET':
+    #     serializer = UserSerializer(instance=user)
+    #     return Response(serializer.data)
+    # elif request.method in ('PUT', 'PATCH'):
+    #     serializer = UserProfileSerializer(
+    #         instance=user,
+    #         data=request.data,
+    #         partial=request.method == 'PATCH'
+    #     )
+    #     serializer.is_valid(raise_exception=True)
+    #     serializer.save()
+    #     return Response(data=serializer.data)
     if not request.user.is_authenticated and request.user.is_staff:
         return Response(status=status.HTTP_401_UNAUTHORIZED)
-    else:
-        user = get_object_or_404(User, username=user_name)
+    elif request.method == 'GET':
+        user = get_object_or_404(User, id=user_id)
         serializer = UserSerializer(instance=user)
         return Response(serializer.data)
+    elif request.method in ('PUT', 'PATCH'):
+        user = get_object_or_404(User, id=user_id)
+        serializer = UserUpdateSerializer(
+            instance=user, data=request.data,
+            partial=request.method == 'PATCH'
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(data=serializer.data)
 
 
 # works
@@ -181,12 +221,12 @@ def get_all_cars(request):
         result_page = paginator.paginate_queryset(all_cars, request)
 
         serializer = AllCars(instance=result_page, many=True)
-        #
-        # if request.user.is_authenticated:
-        #     user_saved_cars = SavedCar.objects.filter(user=request.user)
-        #     saved_cars_ids = [saved_car['car_id'] for saved_car in user_saved_cars]
-        #     for item in serializer.data:
-        #         item['is_saved'] = item['id'] in saved_cars_ids
+
+        if request.user.is_authenticated:
+            user_saved_cars = SavedCar.objects.filter(user=request.user)
+            saved_cars_ids = [saved_car.car.id for saved_car in user_saved_cars]
+            for item in serializer.data:
+                item['is_saved'] = item['id'] in saved_cars_ids
 
         # saved_user_cars = SavedCar.objects.filter(user=request.user)
         # for elem in saved_user_cars:
@@ -250,7 +290,7 @@ def get_saved_cars(request):
 
 @api_view(['DELETE'])
 def delete_saved_car(request, car_id):
-    saved_car = SavedCar.objects.get(car=car_id)
+    saved_car = SavedCar.objects.get(car=car_id, user=request.user)
     if request.method == 'DELETE':
         saved_car.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -283,3 +323,107 @@ def get_all_companies_name(request):
     all_models = [num for sublist in all_companies for num in sublist]
     print(all_models)
     return JsonResponse(data=list(all_models), safe=False)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_profile_img(request):
+    bucket_name = 'car_jb'
+    # the content of the files will always be in request.Files and we can upload more than 1 file so request.Files is
+    # a dict
+    file_stream = request.FILES['file'].file
+    # the ext will have the end of the file name for example :(.jpeg) and the _ variable is going to
+    # have all the file string except the end
+    _, ext = os.path.splitext(request.FILES['file'].name)
+
+    object_name = f"profile_img_{uuid.uuid4()}{ext}"
+    # take the information from the file we downloaded recently that contains the credentials for our cloud
+    credentials = service_account.Credentials.from_service_account_file(
+        "C:\\Users\\avulo\\Downloads\\cars-395918-6f32a95632d9.json")
+    # here we give access to our storage , and then we specify what do we want from our storage
+    storage_client = storage.Client(credentials=credentials)
+    # we give our bucket name , and it goes to that bucket  if the credentials were good after that we will have our
+    # bucket
+    bucket = storage_client.bucket(bucket_name)
+    # here we want to create an obj inside the bucket with our name , and it returns to us an obj(the file itself)
+    blob = bucket.blob(object_name)
+    # here we save inside the blob our file that we want to upload
+    blob.upload_from_file(file_stream)
+
+    # update the db with the new profile img
+    request.user.profile.img_url = blob.public_url
+    request.user.profile.save()
+
+    userSerializer = UserProfileSerializer(request.user)
+    return Response(userSerializer.data)
+
+
+# this func is for not required pictures
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_car_pic(request, car_id):
+    bucket_name = 'car_jb'
+    # the content of the files will always be in request.Files and we can upload more than 1 file so request.Files is
+    # a dict
+    file_stream = request.FILES['file'].file
+    # the ext will have the end of the file name for example :(.jpeg) and the _ variable is going to
+    # have all the file string except the end
+    _, ext = os.path.splitext(request.FILES['file'].name)
+
+    object_name = f"profile_img_{uuid.uuid4()}{ext}"
+    # take the information from the file we downloaded recently that contains the credentials for our cloud
+    credentials = service_account.Credentials.from_service_account_file(
+        "C:\\Users\\avulo\\Downloads\\cars-395918-6f32a95632d9.json")
+    # here we give access to our storage , and then we specify what do we want from our storage
+    storage_client = storage.Client(credentials=credentials)
+    # we give our bucket name , and it goes to that bucket  if the credentials were good after that we will have our
+    # bucket
+    bucket = storage_client.bucket(bucket_name)
+    # here we want to create an obj inside the bucket with our name , and it returns to us an obj(the file itself)
+    blob = bucket.blob(object_name)
+    # here we save inside the blob our file that we want to upload
+    blob.upload_from_file(file_stream)
+
+    # update the db with the new img
+    picture = Picture(car_id=car_id, original=blob.public_url, thumbnail=blob.public_url)
+    # Save the Picture instance to the database
+    picture.save()
+    # request.user.profile.save()
+
+    serializer = AllPicturesByCar(instance=picture)
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_main_car_pic(request, car_id):
+    bucket_name = 'car_jb'
+    # the content of the files will always be in request.Files and we can upload more than 1 file so request.Files is
+    # a dict
+    file_stream = request.FILES['file'].file
+    # the ext will have the end of the file name for example :(.jpeg) and the _ variable is going to
+    # have all the file string except the end
+    _, ext = os.path.splitext(request.FILES['file'].name)
+
+    object_name = f"profile_img_{uuid.uuid4()}{ext}"
+    # take the information from the file we downloaded recently that contains the credentials for our cloud
+    credentials = service_account.Credentials.from_service_account_file(
+        "C:\\Users\\avulo\\Downloads\\cars-395918-6f32a95632d9.json")
+    # here we give access to our storage , and then we specify what do we want from our storage
+    storage_client = storage.Client(credentials=credentials)
+    # we give our bucket name , and it goes to that bucket  if the credentials were good after that we will have our
+    # bucket
+    bucket = storage_client.bucket(bucket_name)
+    # here we want to create an obj inside the bucket with our name , and it returns to us an obj(the file itself)
+    blob = bucket.blob(object_name)
+    # here we save inside the blob our file that we want to upload
+    blob.upload_from_file(file_stream)
+
+    # update the db with the new img
+    car = get_object_or_404(Car, id=car_id)
+
+    # Save the Picture instance to the database
+    car.pic_url = blob.public_url
+    car.save()
+    carSerializer = GetCar(instance=car)
+    return Response(carSerializer.data)

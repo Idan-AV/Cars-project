@@ -12,7 +12,7 @@ urlpatterns = [
     path('auth/signup', signup),
     path('auth/get_all_users', get_all_users),
     path('auth/current_user_details', current_user_details),
-    path('auth/ get_a_user_by_name/<str:user_name>', get_a_user_by_name),
+    path('auth/get_a_user_by_name/<int:user_id>', get_a_user_by_id),
     path('all_companies', get_all_companies),
     path('get_a_company_by_id/<int:company_id>', get_company_by_id),
     path('get_a_car_by_id/<int:car_id>', get_a_car_by_id),
@@ -24,6 +24,9 @@ urlpatterns = [
     path('all_models', get_all_models),
     path('all_cars_for_user', get_all_cars_for_user),
     path('all_companies_name', get_all_companies_name),
+    path('profile/img', upload_profile_img),
+    path('upload_main_car_pic/<int:car_id>',upload_main_car_pic),
+    path('upload_extra_car_pic/<int:car_id>', upload_car_pic)
 
 ]
 
