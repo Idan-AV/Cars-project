@@ -217,7 +217,7 @@ def get_all_cars(request):
             all_cars = all_cars.filter(user__profile__address__icontains=request.query_params['city'])
 
         paginator = PageNumberPagination()
-        paginator.page_size = 4
+        paginator.page_size = 10
         result_page = paginator.paginate_queryset(all_cars, request)
 
         serializer = AllCars(instance=result_page, many=True)
@@ -311,7 +311,7 @@ def get_all_cars_for_user(request):
     user = request.user
     all_cars_for_user = Car.objects.filter(user=user)
     paginator = PageNumberPagination()
-    paginator.page_size = 4
+    paginator.page_size = 10
     result_page = paginator.paginate_queryset(all_cars_for_user, request)
     serializer = AllCars(instance=result_page, many=True)
     return paginator.get_paginated_response(serializer.data)
@@ -427,3 +427,13 @@ def upload_main_car_pic(request, car_id):
     car.save()
     carSerializer = GetCar(instance=car)
     return Response(carSerializer.data)
+
+
+@api_view(['GET'])
+def get_saved_car_ids_for_user(request):
+    if not request.user.is_authenticated:
+        return Response(status=status.HTTP_401_UNAUTHORIZED)
+    saved_cars_ids = list(SavedCar.objects.filter(user=request.user).values_list('car_id').distinct())
+    all_models = [num for sublist in saved_cars_ids for num in sublist]
+    print(all_models)
+    return JsonResponse(data=list(all_models), safe=False)

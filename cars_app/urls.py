@@ -26,7 +26,8 @@ urlpatterns = [
     path('all_companies_name', get_all_companies_name),
     path('profile/img', upload_profile_img),
     path('upload_main_car_pic/<int:car_id>',upload_main_car_pic),
-    path('upload_extra_car_pic/<int:car_id>', upload_car_pic)
+    path('upload_extra_car_pic/<int:car_id>', upload_car_pic),
+    path('saved_cars_ids_for_user', get_saved_car_ids_for_user)
 
 ]
 
