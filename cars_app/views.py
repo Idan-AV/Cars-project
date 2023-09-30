@@ -372,8 +372,10 @@ def upload_car_pic(request, car_id):
 
     object_name = f"profile_img_{uuid.uuid4()}{ext}"
     # take the information from the file we downloaded recently that contains the credentials for our cloud
-    credentials = service_account.Credentials.from_service_account_file(
-        "C:\\Users\\avulo\\Downloads\\cars-395918-6f32a95632d9.json")
+    # credentials = service_account.Credentials.from_service_account_file(
+    #     "C:\\Users\\avulo\\Downloads\\cars-395918-6f32a95632d9.json")
+    credentials = service_account.Credentials.from_service_account_file('/home/ubuntu/cars-395918-6f32a95632d9.json')
+
     # here we give access to our storage , and then we specify what do we want from our storage
     storage_client = storage.Client(credentials=credentials)
     # we give our bucket name , and it goes to that bucket  if the credentials were good after that we will have our
